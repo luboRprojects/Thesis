@@ -13,13 +13,14 @@ data02 <- clean_survival(data01)
 source("03_prepare_data.R")
 data03_defaults <- prepare_data(data02)
 
-#=== Winsorise data with HPD estimation ===
-source("data_hpd.R")
-#--- Summaries ---
-data03 %>% group_by(year, def) %>% summarise(count=n() )
+#--- Summaries and further export ---
+data03_defaults %>% group_by(year, def) %>% summarise(count=n() )
 table(c(data03$rule1 + data03$rule2 + data03$rule3 ), data03$def)
 
 ebit.data <- data02 %>% select(year, ICO, AKTIVACELK, ebit, ebitda, financial.expanses, sales)
-# write.table(x=ebit.data, file="multiples_data_surv.txt", sep=";", row.names=FALSE) 
+write.table(x=ebit.data, file="multiples_data_surv.txt", sep=";", row.names=FALSE) 
 
+
+#=== Winsorise data with HPD estimation ===
+#source("compute_hpd_data.R")
 
