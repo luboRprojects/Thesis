@@ -2,7 +2,6 @@
 prepare_data <- function(file2){
 
 data0 <- file2 #data0 <- data02
-
 data1.1 <- data0
 
 #---- Buggy duplications identification ---
@@ -14,18 +13,16 @@ data1.1 <- data0
 dupl.indicator <- as.logical(anyDuplicated(data1.1))
 cat("Are there any duplicated rows?  ", dupl.indicator)
 
-
 #------	Variables	----------
 #-- Net Worth 
 data1.1$net.worth <- data1.1$VLASTNIJM
 
-#-- EBITDA approximated by ordinary income
+#-- EBITDA approximated by ordinary income + depreciation
 data1.1$ebitda <- data1.1$PROVHOSPV+data1.1$OHANIM
 
 #-- Total Debt
 data1.1$total.debt <- data1.1$AKTIVACELK - data1.1$VLASTNIJM
 data1.1
-
 
 #------	Remove Company With Inappropriate Records	----------
 # 1) companies with available data
@@ -95,23 +92,34 @@ data3 <- data3.3 %>% select(-temp0, -conti, -use)
 #------	DISTRESS ASSIGNMENT	----------
 # 1) Rule 1 = EBITDA < Financial Expanses in two consecutive years
 
-data4.1 <- data3
-data4.1$negative.val <- with(data4.1, ifelse(ebitda<financial.expanses , 1, 0) )
-data4.1$lagged.aux <- lag(data4.1$negative.val)
- data4.1$lagged.aux[1] <- 0
+data4.1 <- data3 %>% group_by(ICO, year)
 
-data4.1$rule2.aux <- as.numeric(with(data4.1, negative.val==1 & lagged.aux==1 & c(ICO[1], diff(ICO))==0, 1, 0))
-data4.1$rule1 <- c(lead(data4.1$rule2.aux)) # shift one month up
-data4.1$rule1[nrow(data4.1)] <- data4.1$negative.val[nrow(data4.1)] # last observation
+data4.1$r1t1 <- as.numeric(data4.1$ebitda < data4.1$financial.expanses)
+data4.1$r1t2 <- c(data4.1$r1t1[-1], 0)
+data4.1$first <- as.numeric(!duplicated(data4.1$ICO))
+data4.1$last <- c(data4.1$first[-1], 1)
+data4.1$r1t3 <- ifelse( (data4.1$r1t1+data4.1$r1t2 == 2), 1, 0)
+data4.1$rule1 <- ifelse( (data4.1$r1t1+data4.1$r1t2 == 2) & (data4.1$last==1), 0, data4.1$r1t3)
 
-data.frame(data4.1) %>% select(ICO, year, ebitda, financial.expanses, rule1)
+data4 <- data4.1 %>% select(-r1t1, -r1t2, -r1t3)
 
-data4.2 <- data4.1
-data4.2$id <- as.numeric(rownames(data4.1))
- correct <- data4.2[which(!duplicated(data4.2$ICO) ), ]$id -1
-data4.2$rule1[correct] <- with(data4.2[correct, ], ifelse(ebitda<financial.expanses, 1, 0) )
+# data4.1 <- data3
+# data4.1$negative.val <- with(data4.1, ifelse(ebitda<financial.expanses , 1, 0) )
+# data4.1$lagged.aux <- lag(data4.1$negative.val)
+#  data4.1$lagged.aux[1] <- 0
 
-data4 <- data4.2 %>% select(-negative.val, -lagged.aux, -rule2.aux, -id)
+# data4.1$rule2.aux <- as.numeric(with(data4.1, negative.val==1 & lagged.aux==1 & c(ICO[1], diff(ICO))==0, 1, 0))
+# data4.1$rule1 <- c(lead(data4.1$rule2.aux)) # shift one month up
+# data4.1$rule1[nrow(data4.1)] <- data4.1$negative.val[nrow(data4.1)] # last observation
+
+# data.frame(data4.1) %>% select(ICO, year, ebitda, financial.expanses, rule1)
+
+# data4.2 <- data4.1
+# data4.2$id <- as.numeric(rownames(data4.1))
+#  correct <- data4.2[which(!duplicated(data4.2$ICO) ), ]$id -1
+# data4.2$rule1[correct] <- with(data4.2[correct, ], ifelse(ebitda<financial.expanses, 1, 0) )
+
+# data4 <- data4.2 %>% select(-negative.val, -lagged.aux, -rule2.aux, -id)
 
 # 2) Rule 2 = net worth < total debt
 data5.1 <- data4
