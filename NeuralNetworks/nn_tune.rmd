@@ -18,6 +18,72 @@ Packages `nnet` and `caret` will be used.
 library(nnet)
 suppressPackageStartupMessages(library(caret))
 ```
+Configure standard nnet model: 
+```{r, standard}
+set.seed(1234) # for reproducibility
+fit1 <- nnet(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns, size = 4, data=train.data)
+```
+
+And now via 'caret::train' function.
+```{r, train.fun}
+fit2 <- train(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns,
+              data = train.data, method="nnet", trace=FALSE, 
+              tuneGrid=expand.grid(.size=2:5, .decay=c(0, 0.1, 0.25, 0.5)))
+```
+
+Inspect the results:
+```{r, plot_tune}
+plot(fit2)
+```
+
+And textual:
+```{r, tune_textual}
+summary(fit2)
+```
+
+Initial model was tuned to achieve highest accuracy. Now, cost matrix will be imposed.
+```{r, cost.define}
+my.cost <- function(predicted, observed){
+ temp <- paste0(predicted, observed)
+ total.cost <- ifelse(temp == "11", 15, #15
+  ifelse(temp == "10", -20,  #-20
+   ifelse(temp == "01", -5, 0) # -5, 5
+  )
+ )
+sum(total.cost)
+}
+```
+'caret' requires function which is passed into 'train' summary function:
+```{r, summary.fun}
+cost.fun <- function(data, lev=c("0","1"), model="nnet"){
+ out <- c(postResample(data[ ,"pred"], data[ ,"obs"]), # built-in statistics (Accuracy, Kappa)
+  total.cost = my.cost(data[ ,"pred"], data[ ,"obs"]) )
+ out
+}
+```
+
+Define new model with adjusted settings:
+```{r, new.model}
+control.nnet <- trainControl(summaryFunction=cost.fun)
+
+fit3 <- train(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns,
+              data = train.data, method="nnet", trace=FALSE, 
+              tuneGrid=expand.grid(.size=2:5, .decay=c(0, 0.1, 0.25, 0.5)),
+              trControl = control.nnet,
+              metric = "total.cost")
+```
+
+And visual results:
+```{r, visual_cost}
+plot(fit3)
+```
+
+Graphical outcome:
+```{r, graphical_summary}
+fit3
+summary(fit3)
+```
+
 
 
 
