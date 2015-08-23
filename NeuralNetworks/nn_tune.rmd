@@ -1,0 +1,19 @@
+---
+title: "NN tuning"
+output: html_document
+---
+Neural network model needs careful calibration because it is prone to overfitting. In this demonstration combination of regularization parameter and number of neurons in 1 hidden-layer model will be analysed to identify the best performing model on the test set.
+
+```{r, data.import}
+library(dplyr)
+data.in <- read.table("/Users/theBeast/Desktop/Lubor/R codes/final_data.txt", sep=";", header=TRUE)
+train.data <- data.in %>% filter(year==2011)
+test.data <- data.in %>% filter(year==2012)
+```
+
+Packages `nnet` and `caret` will be used.
+
+```{r, libraries}
+library(nnet)
+suppressPackageStartupMessages(library(caret))
+```
