@@ -1,0 +1,104 @@
+---
+title: "Neural Network"
+output: html_document
+---
+Neural network (NN) will be fit by Feed-Forward method in library *nnet*.
+
+```{r}
+library(nnet)
+suppressPackageStartupMessages(library(dplyr))
+```
+
+Data is preprocessed and is the same as it was used for glmm logit model. 
+
+```{r}
+data.in <- read.table("/Users/theBeast/Desktop/Lubor/R codes/final_data.txt", sep=";", header=TRUE)
+train.data <- data.in %>% filter(year==2011)
+test.data <- data.in %>% filter(year==2012)
+str(train.data)
+```
+Function `nnet` computes only single layer network. Let fit initial model with default tunning parameters on training data.
+```{r}
+formula <- "as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns"
+set.seed(1234)
+fit1 <- nnet(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns, size = 4, data=train.data)
+```
+Results are not as informative as in other regression functions:
+```{r}
+fit1
+summary(fit1)
+```
+Confusion table on train data can be computed as:
+```{r}
+predicted.train <- data.frame(
+        raw = predict(fit1, type="raw"),
+        pred.class = predict(fit1, type="class"),
+        def = train.data$def)
+table(predicted.train$def, predicted.train$pred.class)
+```
+and for test data:
+```{r}
+predicted.test <- data.frame(
+        raw = predict(fit1, newdata = test.data, type="raw"),
+        pred.class = predict(fit1, newdata = test.data, type="class"),
+        def = test.data$def)
+table(predicted.test$def, predicted.test$pred.class)
+prop.table(table(predicted.test$def, predicted.test$pred.class), 1) %>% round(3)
+```
+From all defaulted companies `r round(prop.table(table(predicted.test$def, predicted.test$pred.class), 1),3 )[2,2] * 100`% were classified correctly. 
+```{r}
+suppressPackageStartupMessages(library(ROCR))
+prediction(predicted.test$raw, predicted.test$def) %>%
+performance("tpr", "fpr") %>% plot()
+```
+
+Classification results vary significantly. Bootraped accuracy will be computed.
+
+```{r}
+library(boot)
+boot.statistics <- function(data, indices){
+        fit <- nnet(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns, size = 4, data=train.data[indices, ], trace=FALSE)
+        predicted.test <- data.frame(
+                raw = predict(fit, newdata = test.data, type="raw"),
+                pred.class = predict(fit, newdata = test.data, type="class"),
+                def = test.data$def)
+        
+ res.table <- round(prop.table(table(predicted.test$def, predicted.test$pred.class), 1),3 )
+ res <- ifelse(sum(dim(res.table))!=4, 0.5, res.table[2,2])
+ res
+}
+
+boot.results <- boot(data=test.data, statistic=boot.statistics, R=100)
+```
+Function defined above calculates distribution of accurracy. Statistics can be visualised as:
+```{r}
+plot(boot.results)
+summary(boot.results$t)
+```
+
+
+## Multiple Layer Neural Network
+Multiple layer NN will be identified by backpropagation method. 
+```{r}
+suppressPackageStartupMessages(library(neuralnet))
+
+tr.data <- train.data
+tr.data$defaulted <- tr.data$def == 1
+tr.data$healthy <- tr.data$def == 0
+
+set.seed(123)
+fit2 <- neuralnet(defaulted + healthy ~ acid.test + debt.ratio + asset.turn + returns, hidden = c(2), data=tr.data)
+fit3 <- neuralnet(def ~ acid.test + debt.ratio + asset.turn + returns, hidden = c(2), data=train.data)
+```
+And also visualise the network.
+```{r}
+# pdf("nn_model.pdf", width = 10, height = 8)
+plot(fit2, rep="best")
+plot(fit3, rep="best")
+```
+
+Predict classes through the probability:
+```{r}
+compute(fit2, test.data[ ,c("acid.test", "debt.ratio" , "asset.turn", "returns")])$net.result %>% head(10)
+compute(fit3, test.data[ ,c("acid.test", "debt.ratio" , "asset.turn", "returns")])$net.result %>% head(10)
+```
