@@ -28,7 +28,7 @@ And now via 'caret::train' function.
 ```{r, train.fun}
 fit2 <- train(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns,
               data = train.data, method="nnet", trace=FALSE, 
-              tuneGrid=expand.grid(.size=2:5, .decay=c(0, 0.1, 0.25, 0.5)))
+              tuneGrid=expand.grid(.size=2:5, .decay=c(0, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5)))
 ```
 
 Inspect the results:
@@ -47,7 +47,7 @@ my.cost <- function(predicted, observed){
  temp <- paste0(predicted, observed)
  total.cost <- ifelse(temp == "11", 15, #15
   ifelse(temp == "10", -20,  #-20
-   ifelse(temp == "01", -5, 0) # -5, 5
+   ifelse(temp == "01", -5, 5) # -5, 5
   )
  )
 sum(total.cost)
@@ -56,10 +56,10 @@ sum(total.cost)
 'caret' requires function which is passed into 'train' summary function:
 ```{r, summary.fun}
 cost.fun <- function(data, lev=c("0","1"), model="nnet"){
- out <- c(postResample(data[ ,"pred"], data[ ,"obs"]), # built-in statistics (Accuracy, Kappa)
-  total.cost = my.cost(data[ ,"pred"], data[ ,"obs"]) )
- out
-}
+   out <- c(postResample(data[ ,"pred"], data[ ,"obs"]), # built-in statistics (Accuracy, Kappa)
+    total.cost = my.cost(data[ ,"pred"], data[ ,"obs"]) )
+   out
+  }
 ```
 
 Define new model with adjusted settings:
@@ -68,9 +68,9 @@ control.nnet <- trainControl(summaryFunction=cost.fun)
 
 fit3 <- train(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns,
               data = train.data, method="nnet", trace=FALSE, 
-              tuneGrid=expand.grid(.size=2:5, .decay=c(0, 0.1, 0.25, 0.5)),
+              tuneGrid=expand.grid(.size=2:5, .decay=c(0, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5)),
               trControl = control.nnet,
-              metric = "total.cost")
+              metric = "total.cost", maximize=TRUE)
 ```
 
 And visual results:
@@ -81,9 +81,22 @@ plot(fit3)
 Graphical outcome:
 ```{r, graphical_summary}
 fit3
-summary(fit3)
 ```
 
+Make prediction on the best model:
+```{r, prediction.tab}
+fit4 <- nnet(as.factor(def) ~ acid.test + debt.ratio + asset.turn + returns, 
+             size = 3, decay=0.1, data=train.data,
+             trControl = control.nnet,
+             metric = "total.cost", maximize=TRUE)
+
+yhat <- data.frame(
+ real = test.data$def,
+ predicted = predict(fit4, newdata=test.data, type="class"),
+ raw = predict(fit4, newdata=test.data, type="raw") )
+
+table(yhat$real, yhat$predicted)
+```
 
 
 
