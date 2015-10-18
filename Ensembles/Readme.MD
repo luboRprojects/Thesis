@@ -4,4 +4,4 @@ Ensemble models were developed in [Weka](http://www.cs.waikato.ac.nz/ml/weka/ "W
 
 Several models were computed to differenciate between training and tuning process and predictive models.
 
-Models are depicted in the Knowledge Flow regime. 
+Models are created in the Knowledge Flow regime. 
